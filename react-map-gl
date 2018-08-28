@@ -1,0 +1,119 @@
+import {Component} from 'react';
+import PropTypes from 'prop-types';
+import WebMercatorViewport from 'viewport-mercator-project';
+
+const propTypes = {
+  /** Event handling */
+  captureScroll: PropTypes.bool,
+  // Stop map pan & rotate
+  captureDrag: PropTypes.bool,
+  // Stop map click
+  captureClick: PropTypes.bool,
+  // Stop map double click
+  captureDoubleClick: PropTypes.bool
+};
+
+const defaultProps = {
+  captureScroll: false,
+  captureDrag: true,
+  captureClick: true,
+  captureDoubleClick: true
+};
+
+const contextTypes = {
+  viewport: PropTypes.instanceOf(WebMercatorViewport),
+  isDragging: PropTypes.bool,
+  eventManager: PropTypes.object
+};
+
+/*
+ * PureComponent doesn't update when context changes.
+ * The only way is to implement our own shouldComponentUpdate here. Considering
+ * the parent component (StaticMap or InteractiveMap) is pure, and map re-render
+ * is almost always triggered by a viewport change, we almost definitely need to
+ * recalculate the marker's position when the parent re-renders.
+ */
+export default class BaseControl extends Component {
+
+  constructor(props) {
+    super(props);
+
+    this._events = null;
+    this._containerRef = null;
+
+    this._onContainerLoad = this._onContainerLoad.bind(this);
+  }
+
+  componentWillUnmount() {
+    const {eventManager} = this.context;
+    if (eventManager && this._events) {
+      eventManager.off(this._events);
+    }
+  }
+
+  _onContainerLoad(ref) {
+    this._containerRef = ref;
+
+    const {eventManager} = this.context;
+
+    // Return early if no eventManager is found
+    if (!eventManager) {
+      return;
+    }
+
+    let events = this._events;
+
+    // Remove all previously registered events
+    if (events) {
+      eventManager.off(events);
+      events = null;
+    }
+
+    if (ref) {
+      // container is mounted: register events for this element
+      events = {
+        wheel: this._onScroll.bind(this),
+        panstart: this._onDragStart.bind(this),
+        click: this._onClick.bind(this),
+        dblclick: this._onDoubleClick.bind(this)
+      };
+
+      eventManager.on(events, ref);
+    }
+
+    this._events = events;
+  }
+
+  _onScroll(evt) {
+    if (this.props.captureScroll) {
+      evt.stopPropagation();
+    }
+  }
+
+  _onDragStart(evt) {
+    if (this.props.captureDrag) {
+      evt.stopPropagation();
+    }
+  }
+
+  _onClick(evt) {
+    if (this.props.captureClick) {
+      evt.stopPropagation();
+    }
+  }
+
+  _onDoubleClick(evt) {
+    if (this.props.captureDoubleClick) {
+      evt.stopPropagation();
+    }
+  }
+
+  render() {
+    return null;
+  }
+
+}
+
+BaseControl.propTypes = propTypes;
+BaseControl.defaultProps = defaultProps;
+BaseControl.contextTypes = contextTypes;
